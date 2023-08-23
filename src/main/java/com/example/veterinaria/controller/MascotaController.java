@@ -31,7 +31,7 @@ public class MascotaController { //Este serive para ver toda la logica de envio 
     @GetMapping
     public ResponseEntity<?> ListarMascota(){    //Aqui haremos una clase que nos ayuda para los '101''202''303'404' etc
         Map<String, Object> response = new HashMap<>();
-        this.logger.debug("Iniciando el proceso de consultas de carreras tecnicas"); //el debug nos ayuda a cambiar el Sout
+        this.logger.debug("Iniciando el proceso de consultas de mascotas"); //el debug nos ayuda a cambiar el Sout
         try{
                 List<Mascota> mascota = this.iMascotasServices. findAll();
                 if(mascota == null && mascota.isEmpty()){
