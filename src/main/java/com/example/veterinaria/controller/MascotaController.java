@@ -8,10 +8,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -29,33 +33,79 @@ public class MascotaController { //Este serive para ver toda la logica de envio 
     private Logger logger = LoggerFactory.getLogger(MascotaController.class); //Ojo con el Logger pro que viene de una libreria especial
 
     @GetMapping
-    public ResponseEntity<?> ListarMascota(){    //Aqui haremos una clase que nos ayuda para los '101''202''303'404' etc
+    public ResponseEntity<?> ListarMascota() {    //Aqui haremos una clase que nos ayuda para los '101''202''303'404' etc
         Map<String, Object> response = new HashMap<>();
         this.logger.debug("Iniciando el proceso de consultas de mascotas"); //el debug nos ayuda a cambiar el Sout
-        try{
-                List<Mascota> mascota = this.iMascotasServices. findAll();
-                if(mascota == null && mascota.isEmpty()){
-                    logger.warn("No existe registro para la entidad de la mascota");
-                    return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-                }else{
-                    logger.info("Se ejecuto la consulta");
-                    return new ResponseEntity<List<Mascota>>(mascota, HttpStatus.OK);
-                }
-        }catch(CannotCreateTransactionException e){ //Este es para cuando el servidor no este funcionando, cuando una instancia no este conectada o una base de datos no este conecta
-            logger.error("Error al momento de conectarse a la base de datos");
-            response.put("mensajee","error al moneotno de contectarse a la");
-            response.put("error",e.getMessage().concat(":").concat(e.getMostSpecificCause().getMessage()));
-            return new ResponseEntity<Map<String, Object>>(response,HttpStatus.SERVICE_UNAVAILABLE);
-        }catch(DataAccessException e){
-            logger.error("El error al momento de ejecutlar la consulta ea  la base d adatos");
-            response.put("mensaje","Error al momenot de ejecutar ola consulta a la base de datos");
-            response.put("error",e.getMessage().concat(":").concat(e.getMostSpecificCause().getMessage()));
-            return new ResponseEntity<Map<String, Object>>(response,HttpStatus.SERVICE_UNAVAILABLE);
+        try {
+            List<Mascota> mascota = this.iMascotasServices.findAll();
+            if (mascota == null && mascota.isEmpty()) {
+                logger.warn("No existe registro para la entidad de la mascota");
+                return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+            } else {
+                logger.info("Se ejecuto la consulta");
+                return new ResponseEntity<List<Mascota>>(mascota, HttpStatus.OK);
+            }
+        } catch (CannotCreateTransactionException e) { //Este es para cuando el servidor no este funcionando, cuando una instancia no este conectada o una base de datos no este conecta
+                response = this.getTransactionExepcion(response, e);
+            //Este block ayuda pero lo hare cambio para tener mejor eficioencia en el codigo
+            /*  logger.error("Error al momento de conectarse a la base de datos");
+            response.put("mensajee", "error al moneotno de contectarse a la");
+            response.put("error", e.getMessage().concat(":").concat(e.getMostSpecificCause().getMessage()));*/
+            return new ResponseEntity<Map<String, Object>>(response, HttpStatus.SERVICE_UNAVAILABLE);
+        } catch (DataAccessException e) {
+            response = this.getDataAccessException(response, e);
+
+            //Al igual aqui
+            /*logger.error("El error al momento de ejecutlar la consulta ea  la base d adatos");
+            response.put("mensaje", "Error al momenot de ejecutar ola consulta a la base de datos");
+            response.put("error", e.getMessage().concat(":").concat(e.getMostSpecificCause().getMessage())); */
+            return new ResponseEntity<Map<String, Object>>(response, HttpStatus.SERVICE_UNAVAILABLE);
 
         }
 
     }
 
+    @GetMapping("/page/{page}") //Aqui ya podremos seleccionar que url qureremos agregar
+    public ResponseEntity<?> ListarMascotasByPage(@PathVariable Integer page){ //este nos servira para mandar una nueva direccion
+        Map<String, Object> response = new HashMap<>();
+        try{
+            Pageable pageable = PageRequest.of(page, 5); //Que me traiga 5 obejtos
+            Page<Mascota> mascotaPage = iMascotasServices.findAll(pageable);
+            if(mascotaPage == null || mascotaPage.getSize()== 0){
+                logger.warn("No existe registro de la tabla de mascotas");
+                return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+            }else{
+                logger.info("sE PROCEDE LA CONSULTA EXITOSAMENTE");
+                return  new ResponseEntity<Page<Mascota>>(mascotaPage, HttpStatus.OK);
+            }
+        }catch (CannotCreateTransactionException e) {
+            response = this.getTransactionExepcion(response, e);
+            return new ResponseEntity<Map<String, Object>>(response, HttpStatus.SERVICE_UNAVAILABLE);
+
+        }catch  (DataAccessException e) {
+            response = this.getDataAccessException(response, e);
+            return new ResponseEntity<Map<String, Object>>(response, HttpStatus.SERVICE_UNAVAILABLE);
+
+        }
+
+
+
+    }
+
+    private Map<String, Object> getTransactionExepcion(Map<String,Object> response, CannotCreateTransactionException e){
+        logger.error("Error al momento de conectarse a la base de datos");
+        response.put("mensajee", "error al moneotno de contectarse a la");
+        response.put("error", e.getMessage().concat(":").concat(e.getMostSpecificCause().getMessage()));
+        return response;
+    }
+
+    private Map<String, Object> getDataAccessException(Map<String, Object> response, DataAccessException e){
+        logger.error("El error al momento de ejecutlar la consulta ea  la base d adatos");
+        response.put("mensaje", "Error al momenot de ejecutar ola consulta a la base de datos");
+        response.put("error", e.getMessage().concat(":").concat(e.getMostSpecificCause().getMessage()));
+        return response;
+
+    }
 
 
 }
