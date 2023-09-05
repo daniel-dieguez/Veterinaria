@@ -2,6 +2,7 @@ package com.example.veterinaria.controller;
 
 
 import com.example.veterinaria.dao.services.IMascotasServices;
+import com.example.veterinaria.models.dtos.MascotaDTO;
 import com.example.veterinaria.models.entitis.Mascota;
 import org.hibernate.exception.DataException;
 import org.slf4j.Logger;
@@ -14,14 +15,16 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.CannotCreateTransactionException;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.*;
 
+import javax.naming.Binding;
+import javax.validation.Valid;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController //esto nos sirva para poder agregar, get, put, delete.
 @RequestMapping(value ="/veterinaria/v1/mascota" ) //Aqui ponemos la buena practiva la version, seria ejemplo 'nombredelapi/No.version/tablaausar/'
@@ -88,10 +91,89 @@ public class MascotaController { //Este serive para ver toda la logica de envio 
 
         }
 
-
-
     }
 
+    //Crearemos un get que envie y busque el Id
+    @GetMapping("/{mascotaId}")
+    public ResponseEntity<?> showMascota(@PathVariable String mascotaId){
+        Map<String, Object> response = new HashMap<>();
+        logger.debug("Inciamos proceso de busqueda de mascota ID".concat(mascotaId));
+        try {
+            Mascota mascota = this.iMascotasServices.findById(mascotaId);
+            if(mascota == null){
+                logger.warn("no existe el id de la mascota".concat(mascotaId));
+                response.put("mensaje","no existe una mascota".concat(mascotaId));
+                return new ResponseEntity<Map<String, Object>>(response, HttpStatus.NOT_FOUND);
+            }else{
+                logger.info("se procesara la busqueda de forma correcta");
+                return new ResponseEntity<Mascota>(mascota, HttpStatus.OK);
+            }
+
+        }catch (CannotCreateTransactionException e) {
+        response = this.getTransactionExepcion(response, e);
+        return new ResponseEntity<Map<String, Object>>(response, HttpStatus.SERVICE_UNAVAILABLE);
+
+    }catch  (DataAccessException e) {
+        response = this.getDataAccessException(response, e);
+        return new ResponseEntity<Map<String, Object>>(response, HttpStatus.SERVICE_UNAVAILABLE);
+
+    }
+    }
+
+    // Vamos a creaer una respuesta nueva
+    @PostMapping
+    public ResponseEntity<?>create(@Valid @RequestBody MascotaDTO value, BindingResult result){ //Aqui lo utilizamos del DTO
+        Map<String, Object> response = new HashMap<>();
+        if(result.hasErrors() == true){
+            /*uso de landas*/ List<String> errores = result.getFieldErrors().stream().map(error -> error.getDefaultMessage())
+                    .collect(Collectors.toList());
+            response.put("Errores",errores);
+            logger.info("Se encuentraron errores al momento de  validar la informacion");
+            return new ResponseEntity<Map<String,Object>>(response, HttpStatus.BAD_REQUEST);//El badreques para cuando al informacion esta mal
+
+        }
+        try{
+            Mascota mascota = new Mascota();
+            mascota.setDueno(value.getMascota());
+            this.iMascotasServices.save(mascota);
+            logger.info("Se creo el nombre de la nueva mascotata de forma exitosa");
+            response.put("mensajes", "la mascota fue creado cone xito");
+            response.put("Mascota", mascota);
+            return new ResponseEntity<Map<String, Object>>(response,HttpStatus.CREATED);
+        }catch (CannotCreateTransactionException e) {
+            response = this.getTransactionExepcion(response, e);
+            return new ResponseEntity<Map<String, Object>>(response, HttpStatus.SERVICE_UNAVAILABLE);
+
+        }catch  (DataAccessException e) {
+            response = this.getDataAccessException(response, e);
+            return new ResponseEntity<Map<String, Object>>(response, HttpStatus.SERVICE_UNAVAILABLE);
+
+        } // Estoy seguro que lo malo debe de ser la llamada a la base de datos (debe de ver un concepto mal ahi ver linea 125
+    }
+
+    @PutMapping("{mascotaId}")
+    public ResponseEntity<?> update(@Valid @ResponseBody MascotaDTO value, BindingResult result, @PathVariable String mascotaId){
+        Map<String, Object> response = new HashMap<>();
+        if(result.hasErrors()){
+            List<String> errores = result.getFieldErrors().stream().map(error -> error.getDefaultMessage()).collect(Collectors.toList());
+            response.put("errores", errores);
+            logger.info("Se encontraron erroes en la validacion");
+            return new ResponseEntity<Map<String, Object>>(response, HttpStatus.BAD_REQUEST);
+        }
+        try {
+
+        }catch (CannotCreateTransactionException e) {
+            response = this.getTransactionExepcion(response, e);
+            return new ResponseEntity<Map<String, Object>>(response, HttpStatus.SERVICE_UNAVAILABLE);
+
+        }catch  (DataAccessException e) {
+            response = this.getDataAccessException(response, e);
+            return new ResponseEntity<Map<String, Object>>(response, HttpStatus.SERVICE_UNAVAILABLE);
+
+        }
+    }
+
+    //Estas son las varaibles que utilizaremos para llamar y ya no escribir todo el codigo repetitivo
     private Map<String, Object> getTransactionExepcion(Map<String,Object> response, CannotCreateTransactionException e){
         logger.error("Error al momento de conectarse a la base de datos");
         response.put("mensajee", "error al moneotno de contectarse a la");
